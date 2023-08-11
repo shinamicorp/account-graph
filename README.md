@@ -1,1 +1,60 @@
 # account-graph
+
+`account-graph` is a smart contract in Move language on Sui network.
+It captures relationship between accounts in a graph, where nodes are addresses and edges are pairs of addresses.
+It also provides the ability to store properties of nodes and edges within the graph.
+
+## build
+`sui move build`
+
+## test
+`sui move test`
+
+## deploy and interact with `account-graph`
+```bash
+# deploy
+PKD_ID=$(sui client publish . \
+             --gas-budget 100000000 \
+             --json \
+             | jq -r '.objectChanges[] | select(.type=="published") | .packageId')
+echo "Package Id: $PKD_ID"
+
+# create a graph
+OBJ_ID=$(sui client call \
+             --module account_graph \
+             --package $PKD_ID \
+             --function new \
+             --args "1" \
+             --type-args "u8" "u8" \
+             --gas-budget 100000000 \
+             --json \
+             | jq -r '.objectChanges[] | select(.type=="created") | .objectId')
+echo "Object Id: $OBJ_ID"
+
+# add relationship
+DIGEST=$(sui client call \
+             --module account_graph \
+             --package $PKD_ID \
+             --function add_relationship \
+             --type-args "u8" "u8" \
+             --args $OBJ_ID $ADDR \
+             --gas-budget 100000000 \
+             --json \
+             | jq -r '.objectChanges[] | select(.type=="created") | .digest')
+echo "Digest: $DIGEST"
+
+# set account property
+# DIGEST=$(sui client call \
+#              --module account_graph \
+#              --package $PKD_ID \
+#              --function test \
+#              --type-args "u8" \
+#              --args 1 \
+#              --gas-budget 100000000 \
+#              --json \
+#              | jq -r '.objectChanges[] | select(.type=="created") | .digest')
+# echo "Digest: $DIGEST"
+```
+
+
+

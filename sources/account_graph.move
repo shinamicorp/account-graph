@@ -4,7 +4,7 @@ module account_graph::account_graph {
     use sui::vec_set::{Self, VecSet};
     use sui::table::{Self, Table};
     use sui::transfer::share_object;
-    use sui::tx_context::{Self, sender, TxContext};
+    use sui::tx_context::{sender, TxContext};
 
     const EOutDegreeExceed: u64 = 0;
 
@@ -38,11 +38,14 @@ module account_graph::account_graph {
         }
     }
 
+    struct GraphCreated has copy, drop {}
+
     public entry fun create<AccountProps: drop + store, RelationshipProps: drop + store>(
         max_out_degree: u32,
         ctx: &mut TxContext,
     ) {
         share_object(new<AccountProps, RelationshipProps>(max_out_degree, ctx));
+        event::emit(GraphCreated{})
     }
 
     struct RelationshipAdded has copy, drop {

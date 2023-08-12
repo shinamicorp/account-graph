@@ -38,8 +38,7 @@ module account_graph::account_graph {
         }
     }
 
-    struct GraphCreated has copy, drop {}
-
+    /// Create a `account_graph`.
     public entry fun create<AccountProps: drop + store, RelationshipProps: drop + store>(
         max_out_degree: u32,
         ctx: &mut TxContext,
@@ -48,11 +47,7 @@ module account_graph::account_graph {
         event::emit(GraphCreated{})
     }
 
-    struct RelationshipAdded has copy, drop {
-        source: address,
-        target: address,
-    }
-
+    /// Add a relationship as edge, where source is sender.
     public entry fun add_relationship<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
@@ -70,11 +65,8 @@ module account_graph::account_graph {
         event::emit(RelationshipAdded{ source, target })
     }
 
-    struct RelationshipRemoved has copy, drop {
-        source: address,
-        target: address,
-    }
-
+    /// Remove a relationship as edge, where source is sender,
+    /// fail if node doesn't exist.
     public entry fun remove_relationship<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
@@ -86,10 +78,8 @@ module account_graph::account_graph {
         event::emit(RelationshipRemoved{ source, target })
     }
 
-    struct RelationshipsCleared has copy, drop {
-        node: address
-    }
-
+    /// Remove all relationships of sender,
+    /// fail if node doesn't exist
     public fun clear_relationships<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         ctx: &mut TxContext,
@@ -100,10 +90,8 @@ module account_graph::account_graph {
         event::emit(RelationshipsCleared{ node })
     }
 
-    struct AccountPropsSet has copy, drop {
-        account: address,
-    }
-
+    /// Set property for account node, where sender is the node,
+    /// previous value is overwritten if exists
     public entry fun set_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         props: AccountProps,
@@ -119,10 +107,8 @@ module account_graph::account_graph {
         event::emit(AccountPropsSet { account: node });
     }
 
-    struct AccountPropsUnset has copy, drop {
-        account: address,
-    }
-
+    /// Unset property for account node, where sender is the node,
+    /// fail if node doesn't exist
     public entry fun unset_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         ctx: &mut TxContext,
@@ -133,11 +119,8 @@ module account_graph::account_graph {
         event::emit(AccountPropsUnset { account: node })
     }
 
-    struct RelationshipPropsSet has copy, drop {
-        source: address,
-        target: address,
-    }
-
+    /// Set property for a relationship, where sender is the source,
+    /// previous value is overwritten if exists
     public entry fun set_relationship_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
@@ -155,11 +138,8 @@ module account_graph::account_graph {
         event::emit(RelationshipPropsSet{ source, target })
     }
 
-    struct RelationshipPropsUnset has copy, drop {
-        source: address,
-        target: address,
-    }
-
+    /// Unset property for a relationship, where sender is the source,
+    /// fail if node doesn't exist
     public entry fun unset_relationship_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
@@ -170,6 +150,44 @@ module account_graph::account_graph {
         table::remove(rel_props, RelationshipKey { source, target });
         event::emit(RelationshipPropsUnset{ source, target })
     }
+
+    // === Events ===
+
+    struct GraphCreated has copy, drop {}
+
+    struct RelationshipAdded has copy, drop {
+        source: address,
+        target: address,
+    }
+
+    struct RelationshipRemoved has copy, drop {
+        source: address,
+        target: address,
+    }
+
+    struct RelationshipsCleared has copy, drop {
+        node: address
+    }
+
+    struct AccountPropsSet has copy, drop {
+        account: address,
+    }
+
+    struct AccountPropsUnset has copy, drop {
+        account: address,
+    }
+
+    struct RelationshipPropsSet has copy, drop {
+        source: address,
+        target: address,
+    }
+
+    struct RelationshipPropsUnset has copy, drop {
+        source: address,
+        target: address,
+    }
+
+    // === Unit tests ===
 
     #[test_only]
     fun drop<AccountProps: drop + store, RelationshipProps: drop + store>(
@@ -247,7 +265,7 @@ module account_graph::account_graph {
 
 
     #[test]
-    public fun test_new() {
+    public fun test_create_graph() {
         drop(create_graph<u8, u8>(1));
     }
 

@@ -1,26 +1,42 @@
 module account_graph::account_graph {
     use std::option::{Self, Option};
+    use std::vector;
 
     use sui::event;
     use sui::object::{Self, ID, UID};
     use sui::vec_set::{Self, VecSet};
     use sui::table::{Self, Table};
-    use sui::transfer::share_object;
+    use sui::transfer::{share_object, transfer};
     use sui::tx_context::{sender, TxContext};
 
     const EOutDegreeExceeded: u64 = 0;
     const EZeroOutDegree: u64     = 1;
+    const ENotAdmin: u64          = 2;
 
+    /// `AccountGraph` models the relationships between various addresses in a directed graph.
+    /// This structure is defined by the following fields:
     struct AccountGraph<phantom AccountProps: drop + store, phantom RelationshipProps: drop + store> has key, store {
+        /// A unique identifier (UID) for the graph as a SUI object.
         id: UID,
+
+        /// An optional field that limits the maximum number of outgoing edges from a node,
+        /// if set to `Some(0)`, graph creation will fail.
         max_out_degree: Option<u32>,
-        relationships: Table<address, AccountRelationships>,
+
+        /// A table mapping an address to its associated account relationships.
+        relationships: Table<address, VecSet<address>>,
+
+        /// A table mapping an address to its associated account properties of type `AccountProps`.
         account_props: Table<address, AccountProps>,
+
+        /// A table mapping a relationship key to its associated relationship properties of type `RelationshipProps`.
         relationship_props: Table<RelationshipKey, RelationshipProps>,
     }
 
-    struct AccountRelationships has drop, store {
-        targets: VecSet<address>,
+    /// A Capability granting a right of admin
+    struct AdminCap has key, store {
+        id: UID,
+        for: ID,
     }
 
     struct RelationshipKey has copy, drop, store {
@@ -31,15 +47,20 @@ module account_graph::account_graph {
     fun new<AccountProps: drop + store, RelationshipProps: drop + store>(
         max_out_degree: Option<u32>,
         ctx: &mut TxContext,
-    ): AccountGraph<AccountProps, RelationshipProps> {
+    ): (AccountGraph<AccountProps, RelationshipProps>, AdminCap) {
         assert!(option::is_none(&max_out_degree) || *option::borrow(&max_out_degree) != 0, EZeroOutDegree);
-        AccountGraph {
+        let graph = AccountGraph {
             id: object::new(ctx),
             max_out_degree,
-            relationships: table::new<address, AccountRelationships>(ctx),
+            relationships: table::new<address, VecSet<address>>(ctx),
             account_props: table::new<address, AccountProps>(ctx),
             relationship_props: table::new<RelationshipKey, RelationshipProps>(ctx),
-        }
+        };
+        let cap = AdminCap {
+            id: object::new(ctx),
+            for: object::id(&graph),
+        };
+        (graph, cap)
     }
 
     /// Create a `account_graph`.
@@ -47,13 +68,14 @@ module account_graph::account_graph {
         max_out_degree: Option<u32>,
         ctx: &mut TxContext,
     ) {
-        let graph = new<AccountProps, RelationshipProps>(max_out_degree, ctx);
+        let (graph, cap) = new<AccountProps, RelationshipProps>(max_out_degree, ctx);
         let graph_id = object::id(&graph);
         share_object(graph);
+        transfer(cap, sender(ctx));
         event::emit(GraphCreated{ graph_id });
     }
 
-    /// Add a relationship as edge, where source is sender.
+    /// Add a relationship as edge, where source is the sender.
     public entry fun add_relationship<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
@@ -62,41 +84,62 @@ module account_graph::account_graph {
         let source = sender(ctx);
         let adj_list = &mut self.relationships;
         if (table::contains(adj_list, source)) {
-            let targets = &mut table::borrow_mut(adj_list, source).targets;
-            assert!(option::is_none(&self.max_out_degree) ||  vec_set::size(targets) < (*option::borrow(&self.max_out_degree) as u64), EOutDegreeExceeded);
+            let targets = table::borrow_mut(adj_list, source);
+            assert!(
+                option::is_none(&self.max_out_degree) ||
+                    vec_set::size(targets) < (*option::borrow(&self.max_out_degree) as u64),
+                EOutDegreeExceeded
+            );
             vec_set::insert(targets, target)
         } else {
-            table::add(adj_list, source, AccountRelationships{ targets: vec_set::singleton(target) })
+            table::add(adj_list, source, vec_set::singleton(target))
         };
-        event::emit(RelationshipAdded{ source, target })
+        event::emit(RelationshipAdded{ graph_id: object::id(self), source, target })
     }
 
-    /// Remove a relationship as edge, where source is sender,
+    /// Remove a relationship as edge, where source is the sender,
     /// fail if node doesn't exist.
+    /// If `remove_adj_list` is `true`, the adjaceny list will be removed when it is empty.
     public entry fun remove_relationship<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         target: address,
+        remove_adj_list: bool,
         ctx: &mut TxContext,
     ) {
         let source = sender(ctx);
-        let adj_list = &mut self.relationships;
-        vec_set::remove(&mut table::borrow_mut(adj_list, source).targets, &target);
-        event::emit(RelationshipRemoved{ source, target })
+        let adj_list = table::borrow_mut(&mut self.relationships, source);
+        vec_set::remove(adj_list, &target);
+        if (remove_adj_list && vec_set::size(adj_list) == 0u64) {
+            table::remove(&mut self.relationships, source);
+        };
+        event::emit(RelationshipRemoved{ graph_id: object::id(self), source, target })
     }
 
-    /// Remove all relationships of sender,
+    /// Remove all relationships of the sender,
     /// fail if node doesn't exist
     public fun clear_relationships<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         ctx: &mut TxContext,
     ) {
-        let node = sender(ctx);
+        let source = sender(ctx);
         let adj_list = &mut self.relationships;
-        table::remove(adj_list, node);
-        event::emit(RelationshipsCleared{ node })
+        let targets = table::remove(adj_list, source);
+        let graph_id = object::id(self);
+        let size = vec_set::size(&targets);
+        let i = 0u64;
+        while (i < size) {
+            event::emit(
+                RelationshipRemoved {
+                    graph_id,
+                    source,
+                    target: *vector::borrow(vec_set::keys(&targets), i)
+                }
+            );
+            i = i + 1;
+        }
     }
 
-    /// Set property for account node, where sender is the node,
+    /// Set properties for the sender account,
     /// previous value is overwritten if exists
     public entry fun set_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
@@ -110,10 +153,10 @@ module account_graph::account_graph {
         } else {
             table::add(account_props, node, props);
         };
-        event::emit(AccountPropsSet { account: node });
+        event::emit(AccountPropsSet { graph_id: object::id(self), node });
     }
 
-    /// Unset property for account node, where sender is the node,
+    /// Unset properties for the sender account,
     /// fail if node doesn't exist
     public entry fun unset_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
@@ -122,7 +165,7 @@ module account_graph::account_graph {
         let node = sender(ctx);
         let account_props = &mut self.account_props;
         table::remove(account_props, node);
-        event::emit(AccountPropsUnset { account: node })
+        event::emit(AccountPropsUnset { graph_id: object::id(self), node })
     }
 
     /// Set property for a relationship, where sender is the source,
@@ -141,7 +184,7 @@ module account_graph::account_graph {
         } else {
             table::add(rel_props, rel_key, props);
         };
-        event::emit(RelationshipPropsSet{ source, target })
+        event::emit(RelationshipPropsSet{ graph_id: object::id(self), source, target })
     }
 
     /// Unset property for a relationship, where sender is the source,
@@ -154,54 +197,16 @@ module account_graph::account_graph {
         let source = sender(ctx);
         let rel_props = &mut self.relationship_props;
         table::remove(rel_props, RelationshipKey { source, target });
-        event::emit(RelationshipPropsUnset{ source, target })
+        event::emit(RelationshipPropsUnset{ graph_id: object::id(self), source, target })
     }
 
-    // === Events ===
 
-    struct GraphCreated has copy, drop {
-        graph_id: ID,
-    }
-
-    struct RelationshipAdded has copy, drop {
-        source: address,
-        target: address,
-    }
-
-    struct RelationshipRemoved has copy, drop {
-        source: address,
-        target: address,
-    }
-
-    struct RelationshipsCleared has copy, drop {
-        node: address
-    }
-
-    struct AccountPropsSet has copy, drop {
-        account: address,
-    }
-
-    struct AccountPropsUnset has copy, drop {
-        account: address,
-    }
-
-    struct RelationshipPropsSet has copy, drop {
-        source: address,
-        target: address,
-    }
-
-    struct RelationshipPropsUnset has copy, drop {
-        source: address,
-        target: address,
-    }
-
-    // === Unit tests ===
-
-    #[test_only]
-    fun drop<AccountProps: drop + store, RelationshipProps: drop + store>(
+    /// Drop a graph
+    public entry fun drop<AccountProps: drop + store, RelationshipProps: drop + store>(
         graph: AccountGraph<AccountProps, RelationshipProps>,
+        cap: AdminCap,
     ) {
-        use sui::object::delete;
+        assert!(cap.for == object::id(&graph), ENotAdmin);
 
         let AccountGraph {
             id,
@@ -210,19 +215,57 @@ module account_graph::account_graph {
             account_props,
             relationship_props,
         } = graph;
-        delete(id);
+        object::delete(id);
         table::drop(relationships);
         table::drop(account_props);
         table::drop(relationship_props);
+
+        let AdminCap { id, for: _} = cap;
+        object::delete(id);
     }
 
-    #[test_only]
-    fun create_graph<AccountProps: drop + store, RelationshipProps: drop + store>(
-        max_out_degree: option::Option<u32>,
-    ): AccountGraph<AccountProps, RelationshipProps> {
-        let ctx = sui::tx_context::dummy();
-        new<AccountProps, RelationshipProps>(max_out_degree, &mut ctx)
+
+    // === Events ===
+
+    struct GraphCreated has copy, drop {
+        graph_id: ID,
     }
+
+    struct RelationshipAdded has copy, drop {
+        graph_id: ID,
+        source: address,
+        target: address,
+    }
+
+    struct RelationshipRemoved has copy, drop {
+        graph_id: ID,
+        source: address,
+        target: address,
+    }
+
+    struct AccountPropsSet has copy, drop {
+        graph_id: ID,
+        node: address,
+    }
+
+    struct AccountPropsUnset has copy, drop {
+        graph_id: ID,
+        node: address,
+    }
+
+    struct RelationshipPropsSet has copy, drop {
+        graph_id: ID,
+        source: address,
+        target: address,
+    }
+
+    struct RelationshipPropsUnset has copy, drop {
+        graph_id: ID,
+        source: address,
+        target: address,
+    }
+
+    // === Unit tests ===
 
     #[test_only]
     fun target_count<AccountProps: drop + store, RelationshipProps: drop + store>(
@@ -231,10 +274,18 @@ module account_graph::account_graph {
     ): u64 {
         let adj_list = &self.relationships;
         if (table::contains(adj_list, source)) {
-            vec_set::size(&table::borrow(adj_list, source).targets)
+            vec_set::size(table::borrow(adj_list, source))
         } else {
             0
         }
+    }
+
+    #[test_only]
+    fun has_targets<AccountProps: drop + store, RelationshipProps: drop + store>(
+        self: &AccountGraph<AccountProps, RelationshipProps>,
+        source: address,
+    ): bool {
+        table::contains(&self.relationships, source)
     }
 
     #[test_only]
@@ -274,195 +325,226 @@ module account_graph::account_graph {
 
     #[test]
     public fun test_create_graph() {
-        drop(create_graph<u8, u8>(option::some(1)));
+        let ctx = sui::tx_context::dummy();
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
+        drop(graph, cap);
     }
 
     #[test]
     #[expected_failure]
     public fun test_create_graph_zero_out_degree() {
-        drop(create_graph<u8, u8>(option::some(0)));
+        let ctx = sui::tx_context::dummy();
+        let (graph, cap) = new<u8, u8>(option::some(0), &mut ctx);
+        drop(graph, cap);
     }
 
     #[test]
     public fun test_create_graph_none_out_degree() {
-        drop(create_graph<u8, u8>(option::none()));
+        let ctx = sui::tx_context::dummy();
+        let (graph, cap) = new<u8, u8>(option::none(), &mut ctx);
+        drop(graph, cap);
     }
 
     #[test]
     public fun test_add_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
         assert!(target_count(&graph, sender(&ctx)) == 1, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_add_2_relationships() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(2), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(2), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
         add_relationship(&mut graph, @0x234, &mut ctx);
         assert!(target_count(&graph, sender(&ctx)) == 2, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     #[expected_failure]
     public fun test_add_same_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
         add_relationship(&mut graph, @0x123, &mut ctx);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     #[expected_failure]
     public fun test_add_exceeded_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
         add_relationship(&mut graph, @0x456, &mut ctx);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_remove_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
-        remove_relationship(&mut graph, @0x123, &mut ctx);
+        remove_relationship(&mut graph, @0x123, false, &mut ctx);
         assert!(target_count(&graph, sender(&ctx)) == 0, 0);
 
-        drop(graph)
+        drop(graph, cap)
+    }
+
+    #[test]
+    public fun test_remove_and_clear_relationship() {
+        let ctx = sui::tx_context::dummy();
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
+
+        add_relationship(&mut graph, @0x123, &mut ctx);
+        remove_relationship(&mut graph, @0x123, true, &mut ctx);
+        assert!(!has_targets(&graph, sender(&ctx)), 0);
+
+        drop(graph, cap)
+    }
+
+    #[test]
+    public fun test_remove_and_clear_relationship2() {
+        let ctx = sui::tx_context::dummy();
+        let (graph, cap) = new<u8, u8>(option::some(2), &mut ctx);
+
+        add_relationship(&mut graph, @0x012, &mut ctx);
+        add_relationship(&mut graph, @0x123, &mut ctx);
+        remove_relationship(&mut graph, @0x123, true, &mut ctx);
+        assert!(has_targets(&graph, sender(&ctx)), 0);
+
+        drop(graph, cap)
     }
 
     #[test]
     #[expected_failure]
     public fun test_remove_non_exist_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
-        remove_relationship(&mut graph, @0x123, &mut ctx);
+        remove_relationship(&mut graph, @0x123, false, &mut ctx);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_clear_relationship() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         add_relationship(&mut graph, @0x123, &mut ctx);
         clear_relationships(&mut graph, &mut ctx);
         assert!(target_count(&graph, sender(&ctx)) == 0, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_set_account_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_account_props(&mut graph, 1, &mut ctx);
         assert!(*get_account_props(&mut graph, &mut ctx) == 1, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_set_exist_account_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_account_props(&mut graph, 1, &mut ctx);
         set_account_props(&mut graph, 2, &mut ctx);
         assert!(*get_account_props(&mut graph, &mut ctx) == 2, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_unset_exist_account_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_account_props(&mut graph, 1, &mut ctx);
         unset_account_props(&mut graph, &mut ctx);
 
         assert!(!contains_account_props(&mut graph, &mut ctx), 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     #[expected_failure]
     public fun test_unset_non_exist_account_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         unset_account_props(&mut graph, &mut ctx);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
 
     #[test]
     public fun test_set_relationship_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_relationship_props(&mut graph, @0x123, 1, &mut ctx);
         assert!(*get_relationship_props(&mut graph, @0x123, &mut ctx) == 1, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_set_exist_relationship_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_relationship_props(&mut graph, @0x123, 1, &mut ctx);
         set_relationship_props(&mut graph, @0x123, 2, &mut ctx);
         assert!(*get_relationship_props(&mut graph, @0x123, &mut ctx) == 2, 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     public fun test_unset_exist_relationship_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         set_relationship_props(&mut graph, @0x123, 1, &mut ctx);
         unset_relationship_props(&mut graph, @0x123, &mut ctx);
 
         assert!(!contains_relationship_props(&mut graph, @0x123, &mut ctx), 0);
 
-        drop(graph)
+        drop(graph, cap)
     }
 
     #[test]
     #[expected_failure]
     public fun test_unset_non_exist_relationship_props() {
         let ctx = sui::tx_context::dummy();
-        let graph = new<u8, u8>(option::some(1), &mut ctx);
+        let (graph, cap) = new<u8, u8>(option::some(1), &mut ctx);
 
         unset_relationship_props(&mut graph, @0x123, &mut ctx);
 
-        drop(graph)
+        drop(graph, cap)
     }
 }
 

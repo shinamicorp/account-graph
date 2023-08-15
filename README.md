@@ -1,7 +1,7 @@
 # account-graph
 
 `account-graph` is a smart contract in Move language on Sui network.
-It captures relationships between accounts using a graph, where nodes are addresses and edges are pairs of addresses.
+It captures relationships between accounts using a directed graph, where nodes are addresses and edges are pairs of addresses.
 It also provides the ability to store properties of nodes and edges along with the graph.
 
 ## build
@@ -23,7 +23,7 @@ echo "Package Id: $PKD_ID"
 OBJ_ID=$(sui client call \
              --module account_graph \
              --package $PKD_ID \
-             --function new \
+             --function create \
              --args "1" \
              --type-args "u8" "u8" \
              --gas-budget 100000000 \
@@ -40,7 +40,7 @@ DIGEST=$(sui client call \
              --args $OBJ_ID $ADDR \
              --gas-budget 100000000 \
              --json \
-             | jq -r '.objectChanges[] | select(.type=="created") | .digest')
+             | jq -r '.digest')
 echo "Digest: $DIGEST"
 
 # set account property

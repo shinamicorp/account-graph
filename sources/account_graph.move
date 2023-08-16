@@ -13,7 +13,6 @@ module account_graph::account_graph {
     const EZeroOutDegree: u64     = 1;
 
     /// `AccountGraph` models the relationships between various addresses in a directed graph.
-    /// This structure is defined by the following fields:
     struct AccountGraph<phantom AccountProps: copy + drop + store, phantom RelationshipProps: copy + drop + store> has key, store {
         /// A unique identifier (UID) for the graph as a SUI object.
         id: UID,

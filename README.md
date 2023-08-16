@@ -33,7 +33,7 @@ OBJ_ID=$(sui client call \
 echo "Object Id: $OBJ_ID"
 
 # add relationship
-DIGEST=$(sui client call \
+TX_DIGEST=$(sui client call \
              --module account_graph \
              --package $PKD_ID \
              --function add_relationship \
@@ -42,7 +42,7 @@ DIGEST=$(sui client call \
              --gas-budget 100000000 \
              --json \
              | jq -r '.digest')
-echo "Digest: $DIGEST"
+echo "Digest: $TX_DIGEST"
 
 # set account property
 # DIGEST=$(sui client call \
@@ -59,3 +59,4 @@ echo "Digest: $DIGEST"
 
 <!-- testnet package id: 0x487033e5fff33ac00ccacfd907dc2537f1baa301a8e0f2143a38d93a5f42c7f8 -->
 <!-- testnet account-graph id: 0x769a08c2d29fe6f4f1836cb295dbe64d91192383369de84660a00331e8734693 -->
+j

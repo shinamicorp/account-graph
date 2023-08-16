@@ -57,5 +57,5 @@ echo "Digest: $DIGEST"
 # echo "Digest: $DIGEST"
 ```
 
-<!-- testnet package id: 0xc86faa1dcf4928b6456c409cdc5183884bba5f158d16e801d6154417984f5df2 -->
-
+<!-- testnet package id: 0x487033e5fff33ac00ccacfd907dc2537f1baa301a8e0f2143a38d93a5f42c7f8 -->
+<!-- testnet account-graph id: 0x769a08c2d29fe6f4f1836cb295dbe64d91192383369de84660a00331e8734693 -->

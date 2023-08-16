@@ -6,7 +6,7 @@ module account_graph::account_graph {
     use sui::object::{Self, ID, UID};
     use sui::vec_set::{Self, VecSet};
     use sui::table::{Self, Table};
-    use sui::transfer::{share_object, transfer};
+    use sui::transfer::{share_object};
     use sui::tx_context::{sender, TxContext};
 
     const EOutDegreeExceeded: u64 = 0;
@@ -32,7 +32,7 @@ module account_graph::account_graph {
         relationship_props: Table<RelationshipKey, RelationshipProps>,
     }
 
-    struct EmptyProp {}
+    struct EmptyProp has copy, drop, store {}
 
     struct RelationshipKey has copy, drop, store {
         source: address,

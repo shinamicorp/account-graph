@@ -3,6 +3,7 @@
 `account-graph` is a smart contract in Move language on Sui network.
 It captures relationships between accounts using a directed graph, where nodes are addresses and edges are pairs of addresses.
 It also provides the ability to store properties of nodes and edges along with the graph.
+All graph operations are authorized by the source account.
 
 ## build
 `sui move build`

@@ -141,7 +141,7 @@ module account_graph::account_graph {
 
     /// Set properties for the sender account,
     /// previous value is overwritten if exists
-    public entry fun set_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
+    public entry fun set_account_props<AccountProps: copy + drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         props: AccountProps,
         ctx: &mut TxContext,
@@ -153,19 +153,19 @@ module account_graph::account_graph {
         } else {
             table::add(account_props, node, props);
         };
-        event::emit(AccountPropsSet { graph_id: object::id(self), node });
+        event::emit(AccountPropsSet { graph_id: object::id(self), node, props, });
     }
 
     /// Unset properties for the sender account,
     /// fail if node doesn't exist
-    public entry fun unset_account_props<AccountProps: drop + store, RelationshipProps: drop + store>(
+    public entry fun unset_account_props<AccountProps: copy + drop + store, RelationshipProps: drop + store>(
         self: &mut AccountGraph<AccountProps, RelationshipProps>,
         ctx: &mut TxContext,
     ) {
         let node = sender(ctx);
         let account_props = &mut self.account_props;
-        table::remove(account_props, node);
-        event::emit(AccountPropsUnset { graph_id: object::id(self), node })
+        let props = table::remove(account_props, node);
+        event::emit(AccountPropsUnset { graph_id: object::id(self), node, props })
     }
 
     /// Set property for a relationship, where sender is the source,
@@ -243,14 +243,16 @@ module account_graph::account_graph {
         target: address,
     }
 
-    struct AccountPropsSet has copy, drop {
+    struct AccountPropsSet<Props: copy> has copy, drop {
         graph_id: ID,
         node: address,
+        props: Props,
     }
 
-    struct AccountPropsUnset has copy, drop {
+    struct AccountPropsUnset<Props: copy> has copy, drop {
         graph_id: ID,
         node: address,
+        props: Props,
     }
 
     struct RelationshipPropsSet has copy, drop {

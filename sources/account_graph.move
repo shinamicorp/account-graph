@@ -50,7 +50,7 @@ module account_graph::account_graph {
         max_out_degree: Option<u32>,
         ctx: &mut TxContext,
     ): AccountGraph<AccountProps, RelationshipProps> {
-        assert!(option::is_none(&max_out_degree) || *option::borrow(&max_out_degree) != 0, EZeroOutDegree);
+        assert!(option::is_none(&max_out_degree) || !option::contains(&max_out_degree, &0), EZeroOutDegree);
         AccountGraph {
             id: object::new(ctx),
             description,
@@ -61,7 +61,7 @@ module account_graph::account_graph {
         }
     }
 
-    /// Create a `account_graph`.
+    /// Create an `account_graph`.
     public fun create<AccountProps: copy + drop + store, RelationshipProps: copy + drop + store>(
         description: String,
         max_out_degree: Option<u32>,
@@ -80,9 +80,9 @@ module account_graph::account_graph {
         ctx: &mut TxContext,
     ) {
         let source = sender(ctx);
-        let adj_list = &mut self.relationships;
-        if (table::contains(adj_list, source)) {
-            let targets = table::borrow_mut(adj_list, source);
+        let adj_lists = &mut self.relationships;
+        if (table::contains(adj_lists, source)) {
+            let targets = table::borrow_mut(adj_lists, source);
             assert!(
                 option::is_none(&self.max_out_degree) ||
                     vec_set::size(targets) < (*option::borrow(&self.max_out_degree) as u64),
@@ -90,7 +90,7 @@ module account_graph::account_graph {
             );
             vec_set::insert(targets, target)
         } else {
-            table::add(adj_list, source, vec_set::singleton(target))
+            table::add(adj_lists, source, vec_set::singleton(target))
         };
         event::emit(RelationshipAdded{ graph_id: object::id(self), source, target })
     }
@@ -106,9 +106,9 @@ module account_graph::account_graph {
         ctx: &mut TxContext,
     ): (address, Option<RelationshipProps>) {
         let source = sender(ctx);
-        let adj_list = table::borrow_mut(&mut self.relationships, source);
-        vec_set::remove(adj_list, &target);
-        if (remove_empty_vec && vec_set::size(adj_list) == 0) {
+        let adj_lists = table::borrow_mut(&mut self.relationships, source);
+        vec_set::remove(adj_lists, &target);
+        if (remove_empty_vec && vec_set::size(adj_lists) == 0) {
             table::remove(&mut self.relationships, source);
         };
         let props = unset_relationship_props(self, target, ctx);
@@ -122,13 +122,13 @@ module account_graph::account_graph {
         ctx: &mut TxContext,
     ): VecMap<address, Option<RelationshipProps>> {
         let source = sender(ctx);
-        let adj_list = &mut self.relationships;
+        let adj_lists = &mut self.relationships;
         let ret = vec_map::empty();
-        if (!table::contains(adj_list, source)) return ret;
-        let targets = table::remove(adj_list, source);
-        let graph_id = object::id(self);
-        let size = vec_set::size(&targets);
+        if (!table::contains(adj_lists, source)) return ret;
+        let targets = table::remove(adj_lists, source);
         let target_vec = vec_set::keys(&targets);
+        let graph_id = object::id(self);
+        let size = vector::length(target_vec);
         let i = 0u64;
         while (i < size) {
             let target = *vector::borrow(target_vec, i);
@@ -158,15 +158,15 @@ module account_graph::account_graph {
         let node = sender(ctx);
         let account_props = &mut self.account_props;
         let ret = if (table::contains(account_props, node)) {
-            let old_props = table::borrow_mut(account_props, node);
-            let ret = option::some(*old_props);
-            *old_props = props;
+            let props_ref = table::borrow_mut(account_props, node);
+            let ret = option::some(*props_ref);
+            *props_ref = props;
             ret
         } else {
             table::add(account_props, node, props);
             option::none()
         };
-        event::emit(AccountPropsSet { graph_id: object::id(self), node, props, });
+        event::emit(AccountPropsSet { graph_id: object::id(self), node, props });
         ret
     }
 
@@ -198,9 +198,9 @@ module account_graph::account_graph {
         let rel_props = &mut self.relationship_props;
         let rel_key = RelationshipKey { source, target };
         let ret = if (table::contains(rel_props, rel_key)) {
-            let old_props = table::borrow_mut(rel_props, rel_key);
-            let ret = option::some(*old_props);
-            *old_props = props;
+            let props_ref = table::borrow_mut(rel_props, rel_key);
+            let ret = option::some(*props_ref);
+            *props_ref = props;
             ret
         } else {
             table::add(rel_props, rel_key, props);
@@ -299,9 +299,9 @@ module account_graph::account_graph {
         self: &AccountGraph<AccountProps, RelationshipProps>,
         source: address,
     ): u64 {
-        let adj_list = &self.relationships;
-        if (table::contains(adj_list, source)) {
-            vec_set::size(table::borrow(adj_list, source))
+        let adj_lists = &self.relationships;
+        if (table::contains(adj_lists, source)) {
+            vec_set::size(table::borrow(adj_lists, source))
         } else {
             0
         }

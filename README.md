@@ -25,7 +25,7 @@ OBJ_ID=$(sui client call \
              --module account_graph \
              --package $PKG_ID \
              --function create \
-             --args "[1]" \
+             --args "beneficiary" "[1]" \
              --type-args "$PKG_ID::account_graph::EmptyProp" "$PKG_ID::account_graph::EmptyProp" \
              --gas-budget 100000000 \
              --json \
@@ -45,6 +45,6 @@ TX_DIGEST=$(sui client call \
 echo "Tx Digest: $TX_DIGEST"
 ```
 
-<!-- testnet package id: 0x487033e5fff33ac00ccacfd907dc2537f1baa301a8e0f2143a38d93a5f42c7f8 -->
-<!-- testnet account-graph id: 0x769a08c2d29fe6f4f1836cb295dbe64d91192383369de84660a00331e8734693 -->
+testnet package: [0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5](https://suiexplorer.com/object/0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5?network=testnet)
 
+testnet example account-graph id: [0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c](https://suiexplorer.com/object/0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c?network=testnet)

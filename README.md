@@ -43,18 +43,6 @@ TX_DIGEST=$(sui client call \
              --json \
              | jq -r '.digest')
 echo "Tx Digest: $TX_DIGEST"
-
-# set account property does not work with sui cli currently
-# TX_DIGEST=$(sui client call \
-#              --module account_graph \
-#              --package $PKG_ID \
-#              --function set_account_props \
-#              --type-args "u8" \
-#              --args $OBJ_ID 1 \
-#              --gas-budget 100000000 \
-#              --json \
-#              | jq -r '.digest')
-# echo "Tx Digest: $TX_DIGEST"
 ```
 
 <!-- testnet package id: 0x487033e5fff33ac00ccacfd907dc2537f1baa301a8e0f2143a38d93a5f42c7f8 -->

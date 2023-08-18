@@ -1,3 +1,6 @@
+// Copyright 2023 Shinami Corp.
+// SPDX-License-Identifier: Apache-2.0
+
 module account_graph::account_graph {
     use std::option::{Self, Option};
     use std::string::String;

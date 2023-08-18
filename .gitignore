@@ -1,5 +1,2 @@
-Move.lock
-
-build
-
+build/
 sui.log.*

@@ -72,7 +72,7 @@ sui client object \
 
 ### Testnet
 
-| Resource | Link |
+| Resource | Id   |
 | -------- | ---- |
 | Package | [0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5](https://suiexplorer.com/object/0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5?network=testnet) |
 | Example graph | [0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c](https://suiexplorer.com/object/0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c?network=testnet) |

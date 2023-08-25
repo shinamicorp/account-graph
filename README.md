@@ -74,9 +74,9 @@ sui client object \
 
 | Resource | Id   |
 | -------- | ---- |
-| Package | [0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5](https://suiexplorer.com/object/0x72d6735d33e031262caaeba202feaf087c4d8d3ebf50265e67e4b710b568b7a5?network=testnet) |
-| Example graph | [0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c](https://suiexplorer.com/object/0x735f56ca17c5359bc6c9cebe97d853199627c44976eae93586225253d725b60c?network=testnet) |
-| Relationships table | `0x346b1a1c18bc78d91dd38679910e87cdf94e8517fc2ab2320076e20df8951785` |
+| Package | [0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848](https://suiexplorer.com/object/0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848?network=testnet) |
+| Example graph | [0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278](https://suiexplorer.com/object/0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278?network=testnet) |
+| Relationships table | `0x612f13538b12aa6ea30275332756aebe429fee48ece3803f256b22dfdd626c1d` |
 
 ### Mainnet
 

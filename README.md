@@ -80,4 +80,13 @@ sui client object \
 
 ### Mainnet
 
-TODO
+| Resource | Id   |
+| -------- | ---- |
+| Package | [0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756](https://suiexplorer.com/object/0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756) |
+| Example graph | [0xda544a6d6fe38d0d83a67209bd0866ab6f3f7f48fd2bee762c3cec811009b835](https://suiexplorer.com/object/0xda544a6d6fe38d0d83a67209bd0866ab6f3f7f48fd2bee762c3cec811009b835) |
+| Relationships table | `0xc2b0e1db481f1383ad23b2439819813008f4edd43a2c1fc04891ae28baa340e9` |
+
+#### Beneficiary graph
+Graph Id: [0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76](https://suiexplorer.com/object/0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76)
+
+Relationships table: `0x63da13e57687bc5639e0160fbab2d4e1d00bc6b25ecaa44a0624b75b6a9f3776`

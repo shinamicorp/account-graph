@@ -7,7 +7,7 @@ All graph operations are authorized by the source account.
 
 Many account graph instances can be created, each capturing one kind of account relationship, with different properties and constraints.
 
-For information regarding Bullshark Quests integration, see [Bullshark Quests beneficiary graph](#bullshark-quests-beneficiary-graph) and [Deployed resources](#deployed-resources).
+**For information regarding Bullshark Quests integration, see [Bullshark Quests beneficiary graph](#bullshark-quests-beneficiary-graph) and [Deployed resources](#deployed-resources).**
 
 ## Graph constraints
 
@@ -45,7 +45,7 @@ The type of relationship properties is specified by the graph creator during ins
 
 ## Bullshark Quests beneficiary graph
 
-The account graph has been adopted by the [Bullshark Quests](https://quests.mystenlabs.com/) as **the official way to link a user's managed in-app wallet to their self-custody wallet.**
+The account graph has been adopted by the [Bullshark Quests](https://quests.mystenlabs.com/) as the official way to link a user's managed in-app wallet to their self-custody wallet.
 This enables applications that leverage managed wallets for their users to participate in Bullshark Quests, while allowing their users' Bullshark NFTs to remain in their self-custody wallets.
 
 This is achieved through the _beneficiary graph_ - an instance of account graph, where each relationship represents a _beneficiary designation_, between the _benefactor_ (managed wallet) and the _beneficiary_ (self-custody wallet).

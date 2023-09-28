@@ -3,7 +3,10 @@
 `account-graph` is a smart contract in Move language on Sui network.
 It captures relationships between accounts using a _directed graph_, where nodes are Sui addresses and edges are relationships between a pair of Sui addresses.
 It also provides the ability to store properties of nodes and edges along with the graph.
-All graph operations are authorized by the source account.
+
+All graph operations are performed against the transaction `sender` account.
+For edge / relationship operations, the transaction `sender` is taken as the source account.
+In other words, an account owner has full control over their outgoing relationships (by signing graph transactions), but has no control over the incoming ones.
 
 Many account graph instances can be created, each capturing one kind of account relationship, with different properties and constraints.
 
@@ -45,11 +48,11 @@ The type of relationship properties is specified by the graph creator during ins
 
 ## Bullshark Quests beneficiary graph
 
-The account graph has been adopted by the [Bullshark Quests](https://quests.mystenlabs.com/) as the official way to link a user's managed in-app wallet to their self-custody wallet.
+The account graph has been adopted by the [Bullshark Quests](https://quests.mystenlabs.com/) as the official and only way to link a user's managed in-app wallet to their self-custody wallet.
 This enables applications that leverage managed wallets for their users to participate in Bullshark Quests, while allowing their users' Bullshark NFTs to remain in their self-custody wallets.
 
 This is achieved through the _beneficiary graph_ - an instance of account graph, where each relationship represents a _beneficiary designation_, between the _benefactor_ (managed wallet) and the _beneficiary_ (self-custody wallet).
-All user activities happening on the _benefactor_ address are automatically attributed to the _beneficiary_ address.
+All user activities happening on the _benefactor_ address are automatically attributed to the _beneficiary_ address when Mysten Labs calculates user points at each interval.
 As an end user who wants to earn Bullshark Quest points from an application, they just need to keep their Bullshark NFT in their self-custody wallet, and designate the self-custody wallet address as the beneficiary of their in-app managed wallet.
 
 Note that in the case of the beneficiary graph, its `max_out_degree` is set to 1, i.e. an account cannot have more than one beneficiary.

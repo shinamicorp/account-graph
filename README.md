@@ -1,17 +1,98 @@
-# account-graph
+# Account graph
 
 `account-graph` is a smart contract in Move language on Sui network.
-It captures relationships between accounts using a directed graph, where nodes are addresses and edges are pairs of addresses.
+It captures relationships between accounts using a _directed graph_, where nodes are Sui addresses and edges are relationships between a pair of Sui addresses.
 It also provides the ability to store properties of nodes and edges along with the graph.
-All graph operations are authorized by the source account.
 
-## Build
-`sui move build`
+All graph operations are performed against the transaction `sender` account.
+For edge / relationship operations, the transaction `sender` is taken as the source account.
+In other words, an account owner has full control over their outgoing relationships (by signing graph transactions), but has no control over the incoming ones.
 
-## Test
-`sui move test`
+Many account graph instances can be created, each capturing one kind of account relationship, with different properties and constraints.
 
-## Deploy and interact with `account-graph`
+**For information regarding Bullshark Quests integration, see [Bullshark Quests beneficiary graph](#bullshark-quests-beneficiary-graph) and [Deployed resources](#deployed-resources).**
+
+## Graph constraints
+
+Currently, the only supported graph constraint is `max_out_degree`, which limits how many outgoing relationships a source account can have.
+The constraint is specified during graph instantiation, and enforced during all later graph operations.
+
+## Graph operations
+
+Each account graph instance is a shared Move object, so anyone can interact with it.
+However, all graph operations are implicitly performed against the transaction `sender` account.
+
+### Manage relationships
+
+An account can manage its own outgoing relationships in a graph through these move calls:
+
+- `<ACCOUNT_GRAPH_PKG>::account_graph::add_relationship` - adds a relationship from the transaction `sender` account to an arbitrary target account.
+- `<ACCOUNT_GRAPH_PKG>::account_graph::remove_relationship` - removes a relationship from the transaction `sender` account to an arbitrary target account.
+- `<ACCOUNT_GRAPH_PKG>::account_graph::clear_relationship` - clears all relationships from the transaction `sender` account.
+
+### Manage account properties
+
+An account can optionally manage its own account properties in a graph.
+The type of account properties is specified by the graph creator during instantiation.
+
+- `<ACCOUNT_GRAPH_PKG>::account_graph::set_account_props` - sets account properties for the transaction `sender` account.
+- `<ACCOUNT_GRAPH_PKG>::account_graph::unset_account_props` - unsets account properties for the transaction `sender` account.
+
+### Manage relationship properties
+
+An account can optionally manage properties of its outgoing relationships in a graph.
+The type of relationship properties is specified by the graph creator during instantiation.
+
+- `<ACCOUNT_GRAPH_PKG>::account_graph::set_relationship_props` - sets properties for the relationship from the transaction `sender` account to a target account.
+- `<ACCOUNT_GRAPH_PKG>::account_graph::unset_relationship_props` - unsets properties for the relationship from the transaction `sender` account to a target account.
+
+## Bullshark Quests beneficiary graph
+
+The account graph has been adopted by the [Bullshark Quests](https://quests.mystenlabs.com/) as the official and only way to link a user's managed in-app wallet to their self-custody wallet.
+This enables applications that leverage managed wallets for their users to participate in Bullshark Quests, while allowing their users' Bullshark NFTs to remain in their self-custody wallets.
+
+This is achieved through the _beneficiary graph_ - an instance of account graph, where each relationship represents a _beneficiary designation_, between the _benefactor_ (managed wallet) and the _beneficiary_ (self-custody wallet).
+All user activities happening on the _benefactor_ address are automatically attributed to the _beneficiary_ address when Mysten Labs calculates user points at each interval.
+As an end user who wants to earn Bullshark Quest points from an application, they just need to keep their Bullshark NFT in their self-custody wallet, and designate the self-custody wallet address as the beneficiary of their in-app managed wallet.
+
+Note that in the case of the beneficiary graph, its `max_out_degree` is set to 1, i.e. an account cannot have more than one beneficiary.
+
+### Shinami invisible wallet integration
+
+For applications that use Shinami invisible wallet, there is native support for beneficiary graph, through both [Shinami Invisible Wallet API](https://docs.shinami.com/reference/invisible-wallet-api#shinami_walx_setbeneficiary), and [Shinami TypesScript SDK](https://www.npmjs.com/package/shinami#beneficiary-graph-api).
+
+## Deployed resources
+
+### Sui Mainnet
+
+| Resource                                        | Id                                                                                                                                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package                                         | [0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756](https://suiexplorer.com/object/0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756) |
+| Official beneficiary graph for Bullshark Quests | [0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76](https://suiexplorer.com/object/0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76) |
+
+### Sui Testnet
+
+| Resource                              | Id                                                                                                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package                               | [0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848](https://suiexplorer.com/object/0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848?network=testnet) |
+| Example beneficiary graph for testing | [0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278](https://suiexplorer.com/object/0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278?network=testnet) |
+
+## Development
+
+### Build
+
+```
+sui move build
+```
+
+### Test
+
+```
+sui move test
+```
+
+### Deploy and interact with an account graph instance
+
 ```bash
 # deploy
 PKG_ID=$(sui client publish . \
@@ -67,26 +148,3 @@ sui client object \
   $REL_FIELD_ID \
   | jq -r '{"source": .content.fields.name, "targets": .content.fields.value.fields.contents}'
 ```
-
-## Deployed resources
-
-### Testnet
-
-| Resource | Id   |
-| -------- | ---- |
-| Package | [0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848](https://suiexplorer.com/object/0xc5085cb067b266f2312d827d14de58049dc3fff70f15c086aa9f0d54ed3b0848?network=testnet) |
-| Example graph | [0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278](https://suiexplorer.com/object/0x1987692739e70cea40e5f2596eee2ebe00bde830f72bb76a7187a0d6d4cea278?network=testnet) |
-| Relationships table | `0x612f13538b12aa6ea30275332756aebe429fee48ece3803f256b22dfdd626c1d` |
-
-### Mainnet
-
-| Resource | Id   |
-| -------- | ---- |
-| Package | [0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756](https://suiexplorer.com/object/0x2461e4bcbc7f92d4d838cc6628afd8361d7ebb80eb11d1d4f249134db27a7756) |
-| Example graph | [0xda544a6d6fe38d0d83a67209bd0866ab6f3f7f48fd2bee762c3cec811009b835](https://suiexplorer.com/object/0xda544a6d6fe38d0d83a67209bd0866ab6f3f7f48fd2bee762c3cec811009b835) |
-| Relationships table | `0xc2b0e1db481f1383ad23b2439819813008f4edd43a2c1fc04891ae28baa340e9` |
-
-#### Beneficiary graph
-Graph Id: [0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76](https://suiexplorer.com/object/0x39fabecb3e74036e6140a938fd1cb194a1affd086004e93c4a76af59d64a2c76)
-
-Relationships table: `0x63da13e57687bc5639e0160fbab2d4e1d00bc6b25ecaa44a0624b75b6a9f3776`
